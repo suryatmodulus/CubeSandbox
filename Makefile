@@ -50,7 +50,11 @@ help:
 	@printf "  - Run 'make builder-image' first if image %s is missing\n" "$(BUILDER_IMAGE)"
 
 builder-image:
-	docker build -t $(BUILDER_IMAGE) -f $(BUILDER_DOCKERFILE) ./docker
+	@if [ -z "$(BUILDER_FORCE_REBUILD)" ] && docker image inspect $(BUILDER_IMAGE) >/dev/null 2>&1; then \
+		printf 'Builder image %s already present, skipping build (set BUILDER_FORCE_REBUILD=1 to rebuild)\n' "$(BUILDER_IMAGE)"; \
+	else \
+		docker build -t $(BUILDER_IMAGE) -f $(BUILDER_DOCKERFILE) ./docker; \
+	fi
 
 prepare-builder-home:
 	@mkdir -p "$(BUILDER_HOME)" \
@@ -100,11 +104,11 @@ all: cubemaster cubelet network-agent
 
 cubemaster: builder-image
 	@mkdir -p "$(OUTPUT_DIR)"
-	$(MAKE) builder-run BUILDER_CMD='mkdir -p /workspace/_output/bin && cd /workspace/CubeMaster && go mod download && make proto && go build -o /workspace/_output/bin/cubemaster ./cmd/cubemaster && go build -o /workspace/_output/bin/cubemastercli ./cmd/cubemastercli'
+	$(MAKE) builder-run BUILDER_CMD='cd /workspace/CubeMaster && make proto && make build && mkdir -p /workspace/_output/bin && cp build/cubemaster build/cubemastercli /workspace/_output/bin/'
 
 cubelet: builder-image
 	@mkdir -p "$(OUTPUT_DIR)"
-	$(MAKE) builder-run BUILDER_CMD='mkdir -p /workspace/_output/bin && cd /workspace/Cubelet && go mod download && make proto && go build -o /workspace/_output/bin/cubelet ./cmd/cubelet && go build -o /workspace/_output/bin/cubecli ./cmd/cubecli'
+	$(MAKE) builder-run BUILDER_CMD='cd /workspace/Cubelet && make proto && make build && mkdir -p /workspace/_output/bin && cp build/cubelet build/cubecli /workspace/_output/bin/'
 
 network-agent: builder-image
 	@mkdir -p "$(OUTPUT_DIR)"
